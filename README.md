@@ -6,10 +6,10 @@ ASR text preprocessing utility
 
 `pip install asrp`
 
-## usage
+## usage - preprocess
 
 input: dictionary, with key `sentence`    
-output: preprocessed result, inplace handling.   
+output: preprocessed result, inplace handling.
 
 ```python
 import asrp
@@ -20,7 +20,7 @@ batch_data = {
 asrp.fun_en(batch_data)
 ```
 
-dynamic loading   
+dynamic loading
 
 ```python
 import asrp
@@ -30,4 +30,15 @@ batch_data = {
 }
 preprocessor = getattr(asrp, 'fun_en')
 preprocessor(batch_data)
+```
+
+## usage - evaluation
+
+```python
+import asrp
+
+targets = ['HuggingFace is great!', 'Love Transformers!', 'Let\'s wav2vec!']
+preds = ['HuggingFace is awesome!', 'Transformers is powerful.', 'Let\'s finetune wav2vec!']
+print("chunk size WER: {:2f}".format(100 * asrp.chunked_wer(targets, preds, chunk_size=None)))
+print("chunk size CER: {:2f}".format(100 * asrp.chunked_cer(targets, preds, chunk_size=None)))
 ```

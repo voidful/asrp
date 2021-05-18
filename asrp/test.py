@@ -1,6 +1,7 @@
 import unittest
 
 import preprocessing
+import eval
 
 
 class TestPreprocssing(unittest.TestCase):
@@ -59,3 +60,21 @@ class TestPreprocssing(unittest.TestCase):
         generic_re = '|'.join(re_list)
         print(generic_re)
         print(count, total)
+
+
+class TestEval(unittest.TestCase):
+    def testCER(self):
+        targets = ['HuggingFace is great!', 'Love Transformers!', 'Let\'s wav2vec!']
+        preds = ['HuggingFace is awesome!', 'Transformers is powerful.', 'Let\'s finetune wav2vec!']
+        print("chunk size = None, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=None)))
+        print("chunk size = 2, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=2)))
+        print("chunk size = 3, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=3)))
+        print("chunk size = 5, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=5)))
+        print("chunk size = 7, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=6)))
+        print("chunk size = 100, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=100)))
+
+    def testBoth(self):
+        targets = ["hello world", "你好啊"]
+        preds = ["hello duck", "您好嗎"]
+        print("chunk size = None, WER: {:2f}".format(100 * eval.chunked_wer(targets, preds, chunk_size=None)))
+        print("chunk size = None, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=None)))
