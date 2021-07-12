@@ -1,2 +1,4 @@
 Unidecode
 jiwer
+transformers
+soundfile

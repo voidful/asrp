@@ -42,3 +42,12 @@ preds = ['HuggingFace is awesome!', 'Transformers is powerful.', 'Let\'s finetun
 print("chunk size WER: {:2f}".format(100 * asrp.chunked_wer(targets, preds, chunk_size=None)))
 print("chunk size CER: {:2f}".format(100 * asrp.chunked_cer(targets, preds, chunk_size=None)))
 ```
+
+## usage - hubertcode
+
+```python
+import asrp
+
+hc = asrp.HubertCode("facebook/hubert-large-ll60k", './km_feat_100_layer_20', 20)
+hc('voice file path')
+```
