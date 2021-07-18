@@ -66,6 +66,7 @@ class TestEval(unittest.TestCase):
     def testCER(self):
         targets = ['HuggingFace is great!', 'Love Transformers!', 'Let\'s wav2vec!']
         preds = ['HuggingFace is awesome!', 'Transformers is powerful.', 'Let\'s finetune wav2vec!']
+        print("CER: {:2f}".format(100 * eval.cer(targets, preds)))
         print("chunk size = None, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=None)))
         print("chunk size = 2, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=2)))
         print("chunk size = 3, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=3)))
@@ -76,5 +77,6 @@ class TestEval(unittest.TestCase):
     def testBoth(self):
         targets = ["hello world", "你好啊"]
         preds = ["hello duck", "您好嗎"]
+        print("WER: {:2f}".format(100 * eval.wer(targets, preds)))
         print("chunk size = None, WER: {:2f}".format(100 * eval.chunked_wer(targets, preds, chunk_size=None)))
         print("chunk size = None, CER: {:2f}".format(100 * eval.chunked_cer(targets, preds, chunk_size=None)))

@@ -2,3 +2,4 @@ Unidecode
 jiwer
 transformers
 soundfile
+editdistance
