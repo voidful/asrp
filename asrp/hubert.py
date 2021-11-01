@@ -5,12 +5,13 @@ import soundfile as sf
 
 
 class HubertCode(object):
-    def __init__(self, hubert_model, km_path, km_layer):
+    def __init__(self, hubert_model, km_path, km_layer, return_diff=False):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model)
         self.model = HubertModel.from_pretrained(hubert_model)
         self.model.eval()
         self.km_model = joblib.load(km_path)
         self.km_layer = km_layer
+        self.return_diff = return_diff
         self.C_np = self.km_model.cluster_centers_.transpose()
         self.Cnorm_np = (self.C_np ** 2).sum(0, keepdims=True)
 
@@ -29,9 +30,14 @@ class HubertCode(object):
                 input_values = input_values.cuda()
             hidden_states = self.model(input_values, output_hidden_states=True).hidden_states
             x = hidden_states[self.km_layer].squeeze()
-            dist = (
-                    x.pow(2).sum(1, keepdim=True)
-                    - 2 * torch.matmul(x, self.C)
-                    + self.Cnorm
+            dist = torch.sqrt(
+                x.pow(2).sum(1, keepdim=True)
+                - 2 * torch.matmul(x, self.C)
+                + self.Cnorm
             )
-            return dist.argmin(dim=1).cpu().numpy()
+            min_dist = dist.detach().min(dim=1)
+            if self.return_diff:
+                return min_dist.indices.cpu().numpy(), x.cpu() - torch.index_select(
+                    torch.tensor(self.C_np.transpose()).cpu(), 0, min_dist.indices.cpu())
+            else:
+                return min_dist.indices.cpu().numpy()
