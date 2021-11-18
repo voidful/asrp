@@ -1,3 +1,5 @@
+from itertools import groupby
+
 import joblib
 import torch
 from transformers import Wav2Vec2FeatureExtractor, HubertModel
@@ -22,7 +24,7 @@ class HubertCode(object):
             self.Cnorm = self.Cnorm.cuda()
             self.model = self.model.cuda()
 
-    def __call__(self, filepath, sampling_rate=None):
+    def __call__(self, filepath, sampling_rate=None, merge=True):
         with torch.no_grad():
             speech, sr = sf.read(filepath)
             input_values = self.processor(speech, return_tensors="pt", sampling_rate=sr).input_values
@@ -36,8 +38,12 @@ class HubertCode(object):
                 + self.Cnorm
             )
             min_dist = dist.detach().min(dim=1)
+            if merge_result:
+                unitcode = [k for k, _ in groupby(min_dist.indices.cpu().numpy())]
+            else:
+                unitcode = min_dist.indices.cpu().numpy()
             if self.return_diff:
-                return min_dist.indices.cpu().numpy(), x.cpu() - torch.index_select(
+                return unitcode, x.cpu() - torch.index_select(
                     torch.tensor(self.C_np.transpose()).cpu(), 0, min_dist.indices.cpu())
             else:
-                return min_dist.indices.cpu().numpy()
+                return unitcode
