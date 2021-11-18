@@ -38,7 +38,7 @@ class HubertCode(object):
                 + self.Cnorm
             )
             min_dist = dist.detach().min(dim=1)
-            if merge_result:
+            if merge:
                 unitcode = [k for k, _ in groupby(min_dist.indices.cpu().numpy())]
             else:
                 unitcode = min_dist.indices.cpu().numpy()
