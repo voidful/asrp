@@ -1,3 +1,7 @@
+import sys
+from asrp import glow
+
+sys.modules['glow'] = glow
 import torch
 import numpy as np
 import torch.nn.functional as F
@@ -5,22 +9,26 @@ from torch.autograd import Variable
 from scipy.signal import get_window
 from librosa.util import pad_center, tiny
 import librosa.util as librosa_util
-
 from asrp.tacotron2 import Tacotron2
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 class Code2Speech(object):
-    def __init__(self, tts_checkpoint, waveglow_checkpint, max_decoder_steps=2000):
+    def __init__(self, tts_checkpoint, waveglow_checkpint=None, max_decoder_steps=2000):
         self.tacotron_model, self.sample_rate, self.hparams = load_tacotron(
             tacotron_model_path=tts_checkpoint,
             max_decoder_steps=max_decoder_steps,
         )
-
         self.waveglow, self.denoiser = load_waveglow(waveglow_path=waveglow_checkpint)
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.tacotron_model = self.tacotron_model.to(self.device)
+        self.waveglow = self.waveglow.to(self.device)
+        self.denoiser = self.denoiser.to(self.device)
 
     def __call__(self, code, strength=0.1):
         with torch.no_grad():
-            tts_input = torch.tensor(code)
+            tts_input = torch.tensor(code).to(self.device)
             mel, aud, aud_dn, has_eos = synthesize_audio(
                 self.tacotron_model,
                 self.waveglow,
@@ -185,9 +193,10 @@ class Denoiser(torch.nn.Module):
     def __init__(self, waveglow, filter_length=1024, n_overlap=4,
                  win_length=1024, mode='zeros'):
         super(Denoiser, self).__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.stft = STFT(filter_length=filter_length,
                          hop_length=int(filter_length / n_overlap),
-                         win_length=win_length).cuda()
+                         win_length=win_length).to(self.device)
         if mode == 'zeros':
             mel_input = torch.zeros(
                 (1, 80, 88),
@@ -208,7 +217,7 @@ class Denoiser(torch.nn.Module):
         self.register_buffer('bias_spec', bias_spec[:, :, 0][:, :, None])
 
     def forward(self, audio, strength=0.1):
-        audio_spec, audio_angles = self.stft.transform(audio.cuda().float())
+        audio_spec, audio_angles = self.stft.transform(audio.to(self.device).float())
         audio_spec_denoised = audio_spec - self.bias_spec * strength
         audio_spec_denoised = torch.clamp(audio_spec_denoised, 0.0)
         audio_denoised = self.stft.inverse(audio_spec_denoised, audio_angles)
@@ -228,9 +237,9 @@ def load_quantized_audio_from_file(file_path):
 
 def synthesize_audio(model, waveglow, denoiser, inp, lab=None, strength=0.0):
     assert inp.size(0) == 1
-    inp = inp.cuda()
+    inp = inp.to(device)
     if lab is not None:
-        lab = torch.LongTensor(1).cuda().fill_(lab)
+        lab = torch.LongTensor(1).to(device).fill_(lab)
 
     with torch.no_grad():
         _, mel, _, ali, has_eos = model.inference(inp, lab, ret_has_eos=True)
@@ -240,19 +249,24 @@ def synthesize_audio(model, waveglow, denoiser, inp, lab=None, strength=0.0):
 
 
 def load_tacotron(tacotron_model_path, max_decoder_steps):
-    ckpt_dict = torch.load(tacotron_model_path)
+    ckpt_dict = torch.load(tacotron_model_path, map_location=torch.device(device))
     hparams = ckpt_dict["hparams"]
     hparams.max_decoder_steps = max_decoder_steps
     sr = hparams.sampling_rate
     model = Tacotron2(hparams)
     model.load_state_dict(ckpt_dict["model_dict"])
-    model = model.cuda().eval().half()
+    model = model.eval().half()
     return model, sr, hparams
 
 
 def load_waveglow(waveglow_path):
-    waveglow = torch.load(waveglow_path)["model"]
-    waveglow = waveglow.cuda().eval().half()
+    if waveglow_path is None:
+        waveglow = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_waveglow', model_math='fp32')
+    else:
+        waveglow = torch.load(waveglow_path, map_location=torch.device(device))["model"]
+
+    waveglow = waveglow.remove_weightnorm(waveglow)
+    waveglow = waveglow.eval().half().to(device)
     for k in waveglow.convinv:
         k.float()
     denoiser = Denoiser(waveglow)
