@@ -51,3 +51,19 @@ import asrp
 hc = asrp.HubertCode("facebook/hubert-large-ll60k", './km_feat_100_layer_20', 20)
 hc('voice file path')
 ```
+
+## usage - code2speech
+
+```python
+import asrp
+
+code = []  # discrete unit
+# download tts checkpoint and waveglow_checkpint from https://github.com/pytorch/fairseq/tree/main/examples/textless_nlp/gslm/unit2speech
+cs = asrp.Code2Speech(tts_checkpoint='./tts_checkpoint_best.pt', waveglow_checkpint='waveglow_256channels_new.pt')
+cs(code)
+
+# play on notebook
+import IPython.display as ipd
+
+ipd.Audio(data=cs(code), autoplay=False, rate=cs.sample_rate)
+```

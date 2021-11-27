@@ -1,3 +1,4 @@
 from .preprocessing import *
 from .eval import chunked_wer, chunked_cer, wer, cer
-from .hubert import HubertCode
+from .voice2code import KmeansCode
+from .code2voice import Code2Speech

@@ -2,15 +2,16 @@ from itertools import groupby
 
 import joblib
 import torch
+import torchaudio
 from transformers import Wav2Vec2FeatureExtractor, HubertModel
-import soundfile as sf
 
 
 class HubertCode(object):
-    def __init__(self, hubert_model, km_path, km_layer, return_diff=False):
+    def __init__(self, hubert_model, km_path, km_layer, return_diff=False, sampling_rate=16000):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model)
         self.model = HubertModel.from_pretrained(hubert_model)
         self.model.eval()
+        self.sampling_rate = sampling_rate
         self.km_model = joblib.load(km_path)
         self.km_layer = km_layer
         self.return_diff = return_diff
@@ -24,10 +25,15 @@ class HubertCode(object):
             self.Cnorm = self.Cnorm.cuda()
             self.model = self.model.cuda()
 
-    def __call__(self, filepath, sampling_rate=None, merge=True):
+    def __call__(self, filepath, merge=True):
         with torch.no_grad():
-            speech, sr = sf.read(filepath)
-            input_values = self.processor(speech, return_tensors="pt", sampling_rate=sr).input_values
+            speech, sr = torchaudio.load(filepath)
+            if sr != self.sampling_rate:
+                resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sampling_rate)
+                speech = resampler.forward(speech.squeeze(0)).numpy()
+            else:
+                speech = speech.squeeze(0).numpy()
+            input_values = self.processor(speech, return_tensors="pt", sampling_rate=self.sampling_rate).input_values
             if torch.cuda.is_available():
                 input_values = input_values.cuda()
             hidden_states = self.model(input_values, output_hidden_states=True).hidden_states
