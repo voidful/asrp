@@ -15,7 +15,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 class Code2Speech(object):
-    def __init__(self, tts_checkpoint, waveglow_checkpint=None, max_decoder_steps=2000):
+    def __init__(self, tts_checkpoint, waveglow_checkpint=None, max_decoder_steps=2000, end_tok=None, code_begin_pad=0):
         self.tacotron_model, self.sample_rate, self.hparams = load_tacotron(
             tacotron_model_path=tts_checkpoint,
             max_decoder_steps=max_decoder_steps,
@@ -25,9 +25,14 @@ class Code2Speech(object):
         self.tacotron_model = self.tacotron_model.to(self.device)
         self.waveglow = self.waveglow.to(self.device)
         self.denoiser = self.denoiser.to(self.device)
+        self.end_tok = end_tok
+        self.code_begin_pad = code_begin_pad
 
     def __call__(self, code, strength=0.1):
         with torch.no_grad():
+            if self.end_tok is not None and code[-1] != self.enc_tok:
+                code = code.append(self.enc_tok)
+            code = [i+self.code_begin_pad for i in code]
             tts_input = torch.tensor(code).to(self.device)
             mel, aud, aud_dn, has_eos = synthesize_audio(
                 self.tacotron_model,
