@@ -30,9 +30,9 @@ class Code2Speech(object):
 
     def __call__(self, code, strength=0.1):
         with torch.no_grad():
-            if self.end_tok is not None and code[-1] != self.enc_tok:
-                code = code.append(self.enc_tok)
-            code = [i+self.code_begin_pad for i in code]
+            code = [i + self.code_begin_pad for i in code]
+            if self.end_tok is not None and code[-1] != self.end_tok:
+                code.append(self.end_tok)
             tts_input = torch.tensor(code).to(self.device)
             mel, aud, aud_dn, has_eos = synthesize_audio(
                 self.tacotron_model,
