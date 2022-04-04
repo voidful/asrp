@@ -8,7 +8,7 @@ from transformers import Wav2Vec2FeatureExtractor, HubertModel
 
 
 class HubertCode(object):
-    def __init__(self, hubert_model, km_path, km_layer, return_diff=False, sampling_rate=16000, chunk_sec=5):
+    def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=5):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model)
         self.model = HubertModel.from_pretrained(hubert_model)
         self.model.eval()
@@ -16,7 +16,6 @@ class HubertCode(object):
         self.chunk_length = sampling_rate * chunk_sec
         self.km_model = joblib.load(km_path)
         self.km_layer = km_layer
-        self.return_diff = return_diff
         self.C_np = self.km_model.cluster_centers_.transpose()
         self.Cnorm_np = (self.C_np ** 2).sum(0, keepdims=True)
 
@@ -27,7 +26,7 @@ class HubertCode(object):
             self.Cnorm = self.Cnorm.cuda()
             self.model = self.model.cuda()
 
-    def __call__(self, filepath, merge=True, beamsearch=True, top_k=10, beamsize=200):
+    def __call__(self, filepath, beamsearch=True, top_k=10, beamsize=200):
         with torch.no_grad():
             speech, sr = torchaudio.load(filepath)
             if sr != self.sampling_rate:
@@ -58,6 +57,12 @@ class HubertCode(object):
             pred_values_array = min_dist.values.cpu().numpy()
             code_output = min_dist.indices.T.cpu().numpy()[0]
 
+            return_dict = {
+                'code': code_output,
+                'center_diff': feature.cpu() - torch.index_select(torch.tensor(self.C_np.transpose()).cpu(), 0,
+                                                                  min_dist.indices[:, 0].cpu()),
+                'merged_code': [k for k, _ in groupby(code_output)]
+            }
             if beamsearch:
                 sequences = [[[], 1.0]]
                 for i_row, v_row in zip(pred_ind_array, pred_values_array):
@@ -72,12 +77,7 @@ class HubertCode(object):
                     ordered = sorted(all_candidates, key=lambda tup: tup[1], reverse=False)
                     sequences = ordered[:beamsize]
                 code_output = sequences[0][0]
+                return_dict['beam_code'] = code_output
+                return_dict['beam_merged_code'] = code_output
 
-            if merge:
-                code_output = [k for k, _ in groupby(code_output)]
-
-            if self.return_diff:
-                return code_output, feature.cpu() - torch.index_select(torch.tensor(self.C_np.transpose()).cpu(), 0,
-                                                                       min_dist.indices.cpu())
-            else:
-                return code_output
+            return return_dict
