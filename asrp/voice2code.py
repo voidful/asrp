@@ -63,9 +63,9 @@ class HubertCode(object):
 
             return_dict = {
                 'code': code_output,
-                'distance': dist.detach().cpu(),
-                'center_diff': feature.cpu() - torch.index_select(torch.tensor(self.C_np.transpose()).cpu(), 0,
-                                                                  min_dist.indices[:, 0].cpu()),
+                'distance': dist.detach().cpu().numpy(),
+                'center_diff': (feature.cpu() - torch.index_select(torch.tensor(self.C_np.transpose()).cpu(), 0,
+                                                                  min_dist.indices[:, 0].cpu())).numpy(),
                 'merged_code': [k for k, _ in groupby(code_output)]
             }
             if beamsearch:
