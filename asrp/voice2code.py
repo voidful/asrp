@@ -38,7 +38,11 @@ class HubertCode(object):
             if torch.cuda.is_available():
                 input_values = input_values.cuda()
 
-            chunks = torch.split(input_values, self.chunk_length, dim=1)
+            chunks = list(torch.split(input_values, self.chunk_length, dim=1))
+            if chunks[-1].shape[-1] < self.sampling_rate:
+                concat_index = -2 if len(chunks) >= 2 else 0
+                chunks[concat_index] = torch.cat(chunks[-2:], dim=-1)
+                chunks = chunks[:concat_index + 1]
             for i, chunk in enumerate(chunks):
                 hidden_states = self.model(chunk, output_hidden_states=True).hidden_states
                 feat = hidden_states[self.km_layer].squeeze()
