@@ -26,15 +26,18 @@ class HubertCode(object):
             self.Cnorm = self.Cnorm.cuda()
             self.model = self.model.cuda()
 
-    def __call__(self, filepath, beamsearch=True, top_k=10, beamsize=200):
+    def __call__(self, filepath='', input_values=[], beamsearch=True, top_k=10, beamsize=200):
         with torch.no_grad():
-            speech, sr = torchaudio.load(filepath)
-            if sr != self.sampling_rate:
-                resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sampling_rate)
-                speech = resampler.forward(speech.squeeze(0)).numpy()
-            else:
-                speech = speech.squeeze(0).numpy()
-            input_values = self.processor(speech, return_tensors="pt", sampling_rate=self.sampling_rate).input_values
+            if len(input_values) <= 0:
+                speech, sr = torchaudio.load(filepath)
+                if sr != self.sampling_rate:
+                    resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sampling_rate)
+                    speech = resampler.forward(speech.squeeze(0)).numpy()
+                else:
+                    speech = speech.squeeze(0).numpy()
+                input_values = self.processor(speech, return_tensors="pt",
+                                              sampling_rate=self.sampling_rate).input_values
+
             if torch.cuda.is_available():
                 input_values = input_values.cuda()
 
@@ -65,7 +68,7 @@ class HubertCode(object):
                 'code': code_output,
                 'distance': dist.detach().cpu().numpy(),
                 'center_diff': (feature.cpu() - torch.index_select(torch.tensor(self.C_np.transpose()).cpu(), 0,
-                                                                  min_dist.indices[:, 0].cpu())).numpy(),
+                                                                   min_dist.indices[:, 0].cpu())).numpy(),
                 'merged_code': [k for k, _ in groupby(code_output)]
             }
             if beamsearch:
@@ -83,6 +86,6 @@ class HubertCode(object):
                     sequences = ordered[:beamsize]
                 code_output = sequences[0][0]
                 return_dict['beam_code'] = code_output
-                return_dict['beam_merged_code'] = code_output
+                return_dict['beam_merged_code'] = [k for k, _ in groupby(code_output)]
 
             return return_dict
