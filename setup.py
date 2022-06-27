@@ -5,7 +5,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='asrp',
-    version='0.0.33',
+    version='0.0.35',
     description='',
     url='https://github.com/voidful/asrp',
     author='Voidful',

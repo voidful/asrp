@@ -1,5 +1,10 @@
+import collections
 import sys
+from random import random
+
 from asrp import glow
+
+from asrp.hifigan import CodeHiFiGANVocoder
 
 sys.modules['glow'] = glow
 import torch
@@ -14,17 +19,51 @@ from asrp.tacotron2 import Tacotron2
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
+def apply_to_sample(f, sample):
+    if hasattr(sample, "__len__") and len(sample) == 0:
+        return {}
+
+    def _apply(x):
+        if torch.is_tensor(x):
+            return f(x)
+        elif isinstance(x, collections.OrderedDict):
+            # OrderedDict has attributes that needs to be preserved
+            od = collections.OrderedDict(
+                (key, _apply(value)) for key, value in x.items()
+            )
+            od.__dict__ = x.__dict__
+            return od
+        elif isinstance(x, dict):
+            return {key: _apply(value) for key, value in x.items()}
+        elif isinstance(x, list):
+            return [_apply(x) for x in x]
+        elif isinstance(x, tuple):
+            return tuple(_apply(x) for x in x)
+        elif isinstance(x, set):
+            return {_apply(x) for x in x}
+        else:
+            return x
+
+    return _apply(sample)
+
+
 class Code2Speech(object):
-    def __init__(self, tts_checkpoint, waveglow_checkpint=None, max_decoder_steps=2000, end_tok=None, code_begin_pad=0):
-        self.tacotron_model, self.sample_rate, self.hparams = load_tacotron(
-            tacotron_model_path=tts_checkpoint,
-            max_decoder_steps=max_decoder_steps,
-        )
-        self.waveglow, self.denoiser = load_waveglow(waveglow_path=waveglow_checkpint)
+    def __init__(self, tts_checkpoint, waveglow_checkpint=None, vocoder='tecotron', max_decoder_steps=2000,
+                 end_tok=None, code_begin_pad=0):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.tacotron_model = self.tacotron_model.to(self.device)
-        self.waveglow = self.waveglow.to(self.device)
-        self.denoiser = self.denoiser.to(self.device)
+        self.vocoder = vocoder
+        if self.vocoder == 'tecotron':
+            self.tacotron_model, self.sample_rate, self.hparams = load_tacotron(
+                tacotron_model_path=tts_checkpoint,
+                max_decoder_steps=max_decoder_steps,
+            )
+            self.waveglow, self.denoiser = load_waveglow(waveglow_path=waveglow_checkpint)
+            self.tacotron_model = self.tacotron_model.to(self.device)
+            self.waveglow = self.waveglow.to(self.device)
+            self.denoiser = self.denoiser.to(self.device)
+        elif self.vocoder == 'hifigan':
+            self.hifigan = load_hifigan(model_path=tts_checkpoint)
+
         self.end_tok = end_tok
         self.code_begin_pad = code_begin_pad
 
@@ -33,15 +72,32 @@ class Code2Speech(object):
             code = [i + self.code_begin_pad for i in code]
             if self.end_tok is not None and code[-1] != self.end_tok:
                 code.append(self.end_tok)
-            tts_input = torch.tensor(code).to(self.device)
-            mel, aud, aud_dn, has_eos = synthesize_audio(
-                self.tacotron_model,
-                self.waveglow,
-                self.denoiser,
-                tts_input.unsqueeze(0),
-                strength=strength
-            )
-            audio_seq = aud_dn[0].cpu().float().numpy()
+            tts_input = torch.tensor(code)
+            if self.vocoder == 'tecotron':
+                tts_input.to(device)
+                mel, aud, aud_dn, has_eos = synthesize_audio(
+                    self.tacotron_model,
+                    self.waveglow,
+                    self.denoiser,
+                    tts_input.unsqueeze(0),
+                    strength=strength
+                )
+                audio_seq = aud_dn[0].cpu().float().numpy()
+            elif self.vocoder == 'hifigan':
+                x = {
+                    "code": tts_input.view(1, -1),
+                }
+                # x["dur_prediction"] = dur_prediction
+                # if self.hifigan.multispkr:
+                #     spk = (
+                #         random.randint(0, vocnum_speakers - 1)
+                #         if args.speaker_id == -1
+                #         else args.speaker_id
+                #     )
+                #     suffix = f"_spk{spk}"
+                #     x["spkr"] = torch.LongTensor([spk]).view(1, 1)
+                audio_seq = self.hifigan(x, False)
+
             return audio_seq
 
 
@@ -276,3 +332,16 @@ def load_waveglow(waveglow_path):
         k.float()
     denoiser = Denoiser(waveglow)
     return waveglow, denoiser
+
+
+def load_hifigan(model_path, speaker_id=0, num_speakers=200):
+    vocoder = CodeHiFiGANVocoder(model_path)
+    multispkr = vocoder.model.multispkr
+    if multispkr:
+        assert (
+                speaker_id < num_speakers
+        ), f"invalid --speaker-id ({speaker_id}) with total #speakers = {num_speakers}"
+    vocoder.multispkr = multispkr
+    vocoder.speaker_id = speaker_id
+    vocoder.num_speakers = num_speakers
+    return vocoder
