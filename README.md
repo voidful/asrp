@@ -67,3 +67,25 @@ import IPython.display as ipd
 
 ipd.Audio(data=cs(code), autoplay=False, rate=cs.sample_rate)
 ```
+
+### usage - liveASR
+
+* modify from https://github.com/oliverguhr/wav2vec2-live
+
+```python
+from asrp.live import LiveHFSpeech
+
+english_model = "voidful/wav2vec2-xlsr-multilingual-56"
+asr = LiveHFSpeech(english_model, device_name="default")
+asr.start()
+
+try:
+    while True:
+        text, sample_length, inference_time = asr.get_last_text()
+        print(f"{sample_length:.3f}s"
+              + f"\t{inference_time:.3f}s"
+              + f"\t{text}")
+
+except KeyboardInterrupt:
+    asr.stop()
+```

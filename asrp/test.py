@@ -1,7 +1,6 @@
 import unittest
 
 import preprocessing
-import eval
 
 
 class TestPreprocssing(unittest.TestCase):

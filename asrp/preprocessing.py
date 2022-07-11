@@ -2,8 +2,6 @@ import re
 import string
 import unicodedata
 
-import unidecode
-
 langs = ['ab', 'ar', 'as', 'br', 'ca', 'cnh', 'cs', 'cv', 'cy', 'de', 'dv', 'el', 'en', 'eo', 'es', 'et', 'eu', 'fa',
          'fi', 'fr', 'fy-NL', 'ga-IE', 'hi', 'hsb', 'hu', 'ia', 'id', 'it', 'ja', 'ka', 'kab', 'ky', 'lg', 'lt', 'lv',
          'mn', 'mt', 'nl', 'or', 'pa-IN', 'pl', 'pt', 'rm-sursilv', 'rm-vallader', 'ro', 'ru', 'rw', 'sah', 'sl',
@@ -359,6 +357,7 @@ def fun_ky(batch):
 
 
 def fun_lg(batch):
+    import unidecode
     chars_to_ignore_regex = '[\[\],?.!;:%"“”(){}‟ˮʺ″«»/…‽�–]'
     batch["sentence"] = re.sub(r'(\w)[‘’´`](\w)', r"\1'\2", batch["sentence"])
     batch["sentence"] = re.sub(chars_to_ignore_regex, "", batch["sentence"]).lower().strip()
