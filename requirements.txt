@@ -4,4 +4,4 @@ transformers
 editdistance
 librosa
 webrtcvad
-pyctcdecode
+pyctcdecodegit
