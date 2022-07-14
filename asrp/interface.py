@@ -7,9 +7,10 @@ from transformers import AutoModelForCTC, AutoProcessor
 
 
 class HFSpeechInference:
-    def __init__(self, model_name, onnx_path='', beam_width=100, hotwords=[], hotword_weight=20, alpha=0.7, beta=1.5):
-        self.processor = AutoProcessor.from_pretrained(model_name, use_auth_token=True)
-        self.model = AutoModelForCTC.from_pretrained(model_name, use_auth_token=True)
+    def __init__(self, model_name, onnx_path='', beam_width=100, hotwords=[], hotword_weight=20, alpha=0.7, beta=1.5,
+                 use_auth_token=False):
+        self.processor = AutoProcessor.from_pretrained(model_name, use_auth_token=use_auth_token)
+        self.model = AutoModelForCTC.from_pretrained(model_name, use_auth_token=use_auth_token)
         self.beam_width = beam_width
         self.hotwords = hotwords
         self.hotword_weight = hotword_weight
