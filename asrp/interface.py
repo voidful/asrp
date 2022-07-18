@@ -52,7 +52,6 @@ class HFSpeechInference:
         return transcription.lower()
 
     def file_to_text(self, filename):
-        import soundfile as sf
-        audio_input, samplerate = sf.read(filename)
-        assert samplerate == 16000
+        import librosa
+        audio_input, samplerate = librosa.load(filename, sr=16000)
         return self.buffer_to_text(audio_input)
