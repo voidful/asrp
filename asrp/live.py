@@ -48,8 +48,20 @@ def live_vad_process(device_name, asr_input_queue, vad_mode=1):
     audio.terminate()
 
 
-def live_asr_process(model_name, in_queue, output_queue):
-    wave2vec_asr = HFSpeechInference(model_name)
+def live_asr_process(model_name, in_queue, output_queue,
+                     beam_width,
+                     hotwords,
+                     hotword_weight,
+                     alpha,
+                     beta,
+                     use_auth_token):
+    wave2vec_asr = HFSpeechInference(model_name,
+                                     beam_width=beam_width,
+                                     hotwords=hotwords,
+                                     hotword_weight=hotword_weight,
+                                     alpha=alpha,
+                                     beta=beta,
+                                     use_auth_token=use_auth_token)
 
     print("\nlistening to your voice\n")
     while True:
@@ -89,13 +101,25 @@ def live_list_microphones(pyaudio_instance):
 class LiveHFSpeech:
     exit_event = threading.Event()
 
-    def __init__(self, model_name, device_name="default"):
+    def __init__(self, model_name, device_name="default",
+                 beam_width=100,
+                 hotwords=[],
+                 hotword_weight=20,
+                 alpha=0.7,
+                 beta=1.5,
+                 use_auth_token=False):
         self.model_name = model_name
         self.device_name = device_name
         self.asr_output_queue = Queue()
         self.asr_input_queue = Queue()
         self.live_asr_process = threading.Thread(target=live_asr_process, args=(
-            self.model_name, self.asr_input_queue, self.asr_output_queue,))
+            self.model_name, self.asr_input_queue, self.asr_output_queue,
+            beam_width,
+            hotwords,
+            hotword_weight,
+            alpha,
+            beta,
+            use_auth_token))
         self.live_vad_process = threading.Thread(target=live_vad_process, args=(
             self.device_name, self.asr_input_queue,))
 
