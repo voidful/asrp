@@ -54,6 +54,8 @@ def live_asr_process(model_name, in_queue, output_queue,
                      hotword_weight,
                      alpha,
                      beta,
+                     beam_prune_logp,
+                     token_min_logp,
                      use_auth_token):
     wave2vec_asr = HFSpeechInference(model_name,
                                      beam_width=beam_width,
@@ -61,6 +63,8 @@ def live_asr_process(model_name, in_queue, output_queue,
                                      hotword_weight=hotword_weight,
                                      alpha=alpha,
                                      beta=beta,
+                                     beam_prune_logp=beam_prune_logp,
+                                     token_min_logp=token_min_logp,
                                      use_auth_token=use_auth_token)
 
     print("\nlistening to your voice\n")
@@ -107,6 +111,8 @@ class LiveHFSpeech:
                  hotword_weight=20,
                  alpha=0.7,
                  beta=1.5,
+                 beam_prune_logp=-10.0,
+                 token_min_logp=-10.0,
                  use_auth_token=False):
         self.model_name = model_name
         self.device_name = device_name
@@ -119,6 +125,8 @@ class LiveHFSpeech:
             hotword_weight,
             alpha,
             beta,
+            beam_prune_logp,
+            token_min_logp,
             use_auth_token))
         self.live_vad_process = threading.Thread(target=live_vad_process, args=(
             self.device_name, self.asr_input_queue,))
