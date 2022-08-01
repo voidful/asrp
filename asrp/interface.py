@@ -11,7 +11,8 @@ class HFSpeechInference:
                  alpha=0.7, beta=1.5,
                  beam_prune_logp=-10.0,
                  token_min_logp=-10.0,
-                 use_auth_token=False):
+                 use_auth_token=False,
+                 homophone_extend=False):
         self.processor = AutoProcessor.from_pretrained(model_name, use_auth_token=use_auth_token)
         self.model = AutoModelForCTC.from_pretrained(model_name, use_auth_token=use_auth_token)
         self.beam_width = beam_width
@@ -22,6 +23,10 @@ class HFSpeechInference:
         self.token_min_logp = token_min_logp
         self.beta = beta
         self.is_onnx = False
+        if homophone_extend:
+            self.processor.decoder.enable_homophone_extend = homophone_extend
+            print("enable homophone extend")
+
         if os.path.exists(onnx_path):
             import onnxruntime as rt
             options = rt.SessionOptions()

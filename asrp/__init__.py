@@ -4,3 +4,4 @@ from .voice2code import HubertCode
 from .code2voice import Code2Speech
 from .interface import HFSpeechInference
 from .live import LiveHFSpeech, live_asr_process, live_vad_process, live_list_microphones, live_get_input_device_id
+from .seeak import Seeak
