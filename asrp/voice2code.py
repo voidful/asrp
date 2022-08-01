@@ -84,6 +84,7 @@ class HubertCode(object):
         with torch.no_grad():
             if len(input_values) <= 0:
                 speech, sr = torchaudio.load(filepath)
+                speech = speech.mean(0).unsqueeze(0)
                 if sr != self.sampling_rate:
                     resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sampling_rate)
                     speech = resampler.forward(speech.squeeze(0)).numpy()

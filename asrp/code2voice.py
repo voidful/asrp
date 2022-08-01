@@ -111,7 +111,7 @@ def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
     window : string, tuple, number, callable, or list-like
         Window specification, as in `get_window`
     n_frames : int > 0
-        The number of analysis frames
+        The number of analysis framesa
     hop_length : int > 0
         The number of samples to advance between frames
     win_length : [optional]
@@ -125,6 +125,7 @@ def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
     wss : np.ndarray, shape=`(n_fft + hop_length * (n_frames - 1))`
         The sum-squared envelope of the window function
     """
+    import librosa
     if win_length is None:
         win_length = n_fft
 
@@ -166,6 +167,7 @@ class STFT(torch.nn.Module):
             np.linalg.pinv(scale * fourier_basis).T[:, None, :])
 
         if window is not None:
+            import librosa
             assert (filter_length >= win_length)
             # get window and zero center pad it to filter_length
             fft_window = get_window(window, win_length, fftbins=True)
@@ -220,6 +222,7 @@ class STFT(torch.nn.Module):
             padding=0)
 
         if self.window is not None:
+            import librosa
             window_sum = window_sumsquare(
                 self.window, magnitude.size(-1), hop_length=self.hop_length,
                 win_length=self.win_length, n_fft=self.filter_length,
