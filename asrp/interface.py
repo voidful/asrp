@@ -23,7 +23,7 @@ class HFSpeechInference:
         self.token_min_logp = token_min_logp
         self.beta = beta
         self.is_onnx = False
-        if homophone_extend:
+        if homophone_extend and hasattr(self.processor, 'decoder'):
             self.processor.decoder.enable_homophone_extend = homophone_extend
             print("enable homophone extend")
 
