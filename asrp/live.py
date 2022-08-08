@@ -1,12 +1,13 @@
-import numpy as np
 import threading
 import time
 from queue import Queue
 
+import numpy as np
+
 from asrp.interface import HFSpeechInference
 
 
-def live_vad_process(device_name, asr_input_queue, vad_mode=1):
+def live_vad_process(device_name, asr_input_queue, vad_mode=2):
     import webrtcvad
     import pyaudio
     vad = webrtcvad.Vad()
@@ -108,6 +109,7 @@ class LiveHFSpeech:
     exit_event = threading.Event()
 
     def __init__(self, model_name, device_name="default",
+                 vad_mode=2,
                  beam_width=100,
                  hotwords=[],
                  hotword_weight=20,
@@ -134,7 +136,7 @@ class LiveHFSpeech:
             homophone_extend
         ))
         self.live_vad_process = threading.Thread(target=live_vad_process, args=(
-            self.device_name, self.asr_input_queue,))
+            self.device_name, self.asr_input_queue, vad_mode))
 
     def stop(self):
         """stop the asr process"""
