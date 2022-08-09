@@ -15,16 +15,16 @@ class Seeak:
             if cin_source in v:
                 for cin in v[cin_source]:
                     self.cin_to_char_dict[cin].append(k)
+        print("pre calculating homophone character")
+        self.homochar = defaultdict(list)
+        for char, cins in self.char_to_cin_dict.items():
+            if len(cins.get(cin_source, [])) > 1 and char == '食':
+                print(char, cins.get(cin_source, []))
+            for cin in cins.get(cin_source, []):
+                self.homochar[char].extend(self.cin_to_char_dict.get(cin, []))
 
     def get(self, char):
-        result_char = []
-        if char in self.char_to_cin_dict:
-            char_to_cin = self.char_to_cin_dict[char]
-            if self.cin_source in char_to_cin:
-                for cin in char_to_cin[self.cin_source]:
-                    if cin in self.cin_to_char_dict:
-                        result_char.extend(self.cin_to_char_dict[cin])
-        return result_char
+        return self.homochar[char]
 
     def get_phone(self, char):
         if char is not None and char in self.char_to_cin_dict and self.cin_source in self.char_to_cin_dict[char]:
