@@ -1,8 +1,7 @@
 from collections import defaultdict
+from pathlib import Path
 
 import nlp2
-
-from pathlib import Path
 
 
 class Seeak:
@@ -14,11 +13,21 @@ class Seeak:
         self.cin_source = cin_source
         for k, v in self.char_to_cin_dict.items():
             if cin_source in v:
-                self.cin_to_char_dict[v[cin_source]].append(k)
+                for cin in v[cin_source]:
+                    self.cin_to_char_dict[cin].append(k)
 
     def get(self, char):
+        result_char = []
         if char in self.char_to_cin_dict:
             char_to_cin = self.char_to_cin_dict[char]
-            if self.cin_source in char_to_cin and char_to_cin[self.cin_source] in self.cin_to_char_dict:
-                return self.cin_to_char_dict[char_to_cin[self.cin_source]]
-        return []
+            if self.cin_source in char_to_cin:
+                for cin in char_to_cin[self.cin_source]:
+                    if cin in self.cin_to_char_dict:
+                        result_char.extend(self.cin_to_char_dict[cin])
+        return result_char
+
+    def get_phone(self, char):
+        if char is not None and char in self.char_to_cin_dict and self.cin_source in self.char_to_cin_dict[char]:
+            return self.char_to_cin_dict[char][self.cin_source]
+        else:
+            return []
