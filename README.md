@@ -6,7 +6,7 @@ ASR text preprocessing utility
 
 `pip install asrp`
 
-## usage - preprocess
+## Preprocess
 
 input: dictionary, with key `sentence`    
 output: preprocessed result, inplace handling.
@@ -32,7 +32,7 @@ preprocessor = getattr(asrp, 'fun_en')
 preprocessor(batch_data)
 ```
 
-## usage - evaluation
+## Evaluation
 
 ```python
 import asrp
@@ -43,7 +43,7 @@ print("chunk size WER: {:2f}".format(100 * asrp.chunked_wer(targets, preds, chun
 print("chunk size CER: {:2f}".format(100 * asrp.chunked_cer(targets, preds, chunk_size=None)))
 ```
 
-## usage - hubertcode
+## Speech to Hubert code
 
 ```python
 import asrp
@@ -52,7 +52,7 @@ hc = asrp.HubertCode("facebook/hubert-large-ll60k", './km_feat_100_layer_20', 20
 hc('voice file path')
 ```
 
-## usage - code2speech
+## Hubert code to speech
 
 ```python
 import asrp
@@ -66,6 +66,16 @@ cs(code)
 import IPython.display as ipd
 
 ipd.Audio(data=cs(code), autoplay=False, rate=cs.sample_rate)
+```
+
+### Speech Enhancement
+Denoiser copied
+from [fairseq](https://github.com/facebookresearch/fairseq/tree/main/examples/speech_synthesis/preprocessing/denoiser)
+```python
+from asrp import SpeechEnhancer
+
+ase = SpeechEnhancer()
+print(ase('./test/xxx.wav'))
 ```
 
 ### usage - liveASR

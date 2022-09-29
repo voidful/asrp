@@ -1,17 +1,16 @@
-from itertools import groupby
 import gc
+from itertools import groupby
 
 import joblib
 import numpy
 import torch
 import torchaudio
-from transformers import Wav2Vec2FeatureExtractor, HubertModel
-from collections import defaultdict
 from tqdm.contrib.concurrent import thread_map
+from transformers import Wav2Vec2FeatureExtractor, HubertModel
 
 
 class HubertCode(object):
-    def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=5):
+    def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=30, worker=8):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model)
         self.model = HubertModel.from_pretrained(hubert_model)
         self.model.eval()
@@ -21,42 +20,46 @@ class HubertCode(object):
         self.km_layer = km_layer
         self.C_np = self.km_model.cluster_centers_.transpose()
         self.Cnorm_np = (self.C_np ** 2).sum(0, keepdims=True)
-
+        self.worker = worker
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.C = torch.from_numpy(self.C_np)
         self.Cnorm = torch.from_numpy(self.Cnorm_np)
         if torch.cuda.is_available():
             self.C = self.C.cuda()
             self.Cnorm = self.Cnorm.cuda()
             self.model = self.model.cuda()
-            self.max_batch = self.get_max_batch()
+        self.max_batch = self.get_max_batch()
 
     def get_max_batch(self):
+        print("calculating max batch size...")
         batch = 1
-        try:
-            while True:
-                self.model(torch.rand([batch, self.chunk_length]).cuda())
-                batch += 1
-        except:
-            pass
-        gc.collect()
-        torch.cuda.empty_cache()
+        with torch.no_grad():
+            try:
+                while True:
+                    self.model(torch.rand([batch, self.chunk_length]).cuda())
+                    batch += 1
+                    gc.collect()
+                    torch.cuda.empty_cache()
+            except:
+                pass
+
+        batch = max(batch - 1, 1)
         print("maximum batch size will be", batch)
-        return batch
 
     def _process_feature(self, k, top_k=5, beamsearch=True, beamsize=3):
-        feature = torch.cat(k, dim=0)
+        feature = torch.cat(k, dim=0) if isinstance(k, list) else k
         dist = torch.sqrt(
             feature.pow(2).sum(1, keepdim=True)
             - 2 * torch.matmul(feature, self.C)
             + self.Cnorm
         )
-        min_dist = torch.topk(dist.detach(), top_k, dim=-1, largest=False)
+        min_dist = torch.topk(dist.detach().cpu(), top_k, dim=-1, largest=False)
         pred_ind_array = min_dist.indices.cpu().numpy()
         pred_values_array = min_dist.values.cpu().numpy()
         code_output = min_dist.indices.T.cpu().numpy()[0]
 
         return_dict = {
-            'code': code_output,
+            'code': list(code_output),
             'distance': dist.detach().cpu().numpy(),
             'center_diff': (feature.cpu() - torch.index_select(torch.tensor(self.C_np.transpose()).cpu(), 0,
                                                                min_dist.indices[:, 0].cpu())).numpy(),
@@ -104,26 +107,21 @@ class HubertCode(object):
 
             batch_data = []
             cache_batch = []
-            for audio_part in range(input_values.shape[0]):
-                for c in chunks:
-                    if len(cache_batch) >= self.max_batch:
-                        batch_data.append(cache_batch)
-                        cache_batch = []
-                    cache_batch.append((c[audio_part], audio_part))
+            for c in chunks:
+                if len(cache_batch) >= self.max_batch:
+                    batch_data.append(cache_batch)
+                    cache_batch = []
+                cache_batch.append(c)
             if len(cache_batch) > 0:
                 batch_data.append(cache_batch)
 
-            features_dict = defaultdict(list)
+            code_result = []
             for bd in batch_data:
-                for audio_id, hidden in zip([i[1] for i in bd],
-                                            self.model(torch.stack([i[0] for i in bd], 0).to('cuda'),
-                                                       output_hidden_states=True).hidden_states[self.km_layer]):
-                    features_dict[audio_id].append(hidden)
+                hidden = self.model(torch.stack([i[0] for i in bd], dim=0), output_hidden_states=True).hidden_states[
+                    self.km_layer]
+                code_result.append(hidden.squeeze(0).detach())
 
-            # Explicit clean up
-            gc.collect()
-            torch.cuda.empty_cache()
-            return_dicts = thread_map(self._process_feature, features_dict.values(), max_workers=8)
+            return_dicts = thread_map(self._process_feature, code_result, leave=False)
 
             if len(return_dicts) == 1:
                 return return_dicts[0]
