@@ -45,6 +45,7 @@ class HubertCode(object):
 
         batch = max(batch - 1, 1)
         print("maximum batch size will be", batch)
+        return batch
 
     def _process_feature(self, k, top_k=5, beamsearch=True, beamsize=3):
         feature = torch.cat(k, dim=0) if isinstance(k, list) else k
