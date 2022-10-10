@@ -5,3 +5,4 @@ editdistance
 librosa
 webrtcvad
 pyctcdecode
+whisper

@@ -83,10 +83,10 @@ print(ase('./test/xxx.wav'))
 * modify from https://github.com/oliverguhr/wav2vec2-live
 
 ```python
-from asrp.live import LiveHFSpeech
+from asrp.live import LiveSpeech
 
 english_model = "voidful/wav2vec2-xlsr-multilingual-56"
-asr = LiveHFSpeech(english_model, device_name="default")
+asr = LiveSpeech(english_model, device_name="default")
 asr.start()
 
 try:
@@ -98,4 +98,24 @@ try:
 
 except KeyboardInterrupt:
     asr.stop()
+```
+
+### usage - liveASR - whisper
+```python
+from asrp.live import LiveSpeech
+
+whisper_model = "tiny"
+asr = LiveSpeech(whisper_model)
+asr.start()
+last_text = ""
+while True:
+    asr_text = ""
+    try:
+        asr_text, sample_length, inference_time = asr.get_last_text()
+        if len(asr_text) > 0:
+            print(asr_text, sample_length, inference_time)
+    except KeyboardInterrupt:
+        asr.stop()
+        break
+
 ```

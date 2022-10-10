@@ -2,6 +2,7 @@ import os.path
 
 import numpy as np
 import torch
+import whisper
 from transformers import AutoModelForCTC, AutoProcessor
 
 
@@ -63,6 +64,30 @@ class HFSpeechInference:
             transcription = self.processor.batch_decode(predicted_ids)[0]
 
         return transcription.lower()
+
+    def file_to_text(self, filename):
+        import librosa
+        audio_input, samplerate = librosa.load(filename, sr=16000)
+        return self.buffer_to_text(audio_input)
+
+
+class WhisperInference:
+    def __init__(self, model_size='base'):
+        self.model = whisper.load_model(model_size)
+        self.options = whisper.DecodingOptions(fp16=False)
+
+    def buffer_to_text(self, audio_buffer):
+        if (len(audio_buffer) == 0):
+            return ""
+
+        with torch.no_grad():
+            audio = whisper.pad_or_trim(audio_buffer)
+            mel = whisper.log_mel_spectrogram(audio).to(self.model.device)
+            result = whisper.decode(self.model, mel, self.options)
+        if result.no_speech_prob < 0.4:
+            return result.text.lower()
+        else:
+            return ""
 
     def file_to_text(self, filename):
         import librosa

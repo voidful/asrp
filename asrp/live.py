@@ -4,7 +4,7 @@ from queue import Queue
 
 import numpy as np
 
-from asrp.interface import HFSpeechInference
+from asrp.interface import WhisperInference, HFSpeechInference
 
 
 def live_vad_process(device_name, asr_input_queue, vad_mode=2):
@@ -34,7 +34,7 @@ def live_vad_process(device_name, asr_input_queue, vad_mode=2):
 
     frames = b''
     while True:
-        if LiveHFSpeech.exit_event.is_set():
+        if LiveSpeech.exit_event.is_set():
             break
         frame = stream.read(CHUNK, exception_on_overflow=False)
         is_speech = vad.is_speech(frame, RATE)
@@ -59,16 +59,19 @@ def live_asr_process(model_name, in_queue, output_queue,
                      token_min_logp,
                      use_auth_token,
                      homophone_extend):
-    wave2vec_asr = HFSpeechInference(model_name,
-                                     beam_width=beam_width,
-                                     hotwords=hotwords,
-                                     hotword_weight=hotword_weight,
-                                     alpha=alpha,
-                                     beta=beta,
-                                     beam_prune_logp=beam_prune_logp,
-                                     token_min_logp=token_min_logp,
-                                     use_auth_token=use_auth_token,
-                                     homophone_extend=homophone_extend)
+    if "tiny" == model_name or "base" == model_name or "small" == model_name or "medium" == model_name and "large" == model_name:
+        asr_interface = WhisperInference(model_size=model_name)
+    else:
+        asr_interface = HFSpeechInference(model_name,
+                                          beam_width=beam_width,
+                                          hotwords=hotwords,
+                                          hotword_weight=hotword_weight,
+                                          alpha=alpha,
+                                          beta=beta,
+                                          beam_prune_logp=beam_prune_logp,
+                                          token_min_logp=token_min_logp,
+                                          use_auth_token=use_auth_token,
+                                          homophone_extend=homophone_extend)
 
     print("\nlistening to your voice\n")
     while True:
@@ -77,13 +80,12 @@ def live_asr_process(model_name, in_queue, output_queue,
             break
 
         float64_buffer = np.frombuffer(
-            audio_frames, dtype=np.int16) / 32767
+            audio_frames, dtype=np.int16).astype(np.float32) / 327678.0
         start = time.perf_counter()
-        text = wave2vec_asr.buffer_to_text(float64_buffer).lower()
+        text = asr_interface.buffer_to_text(float64_buffer).lower()
         inference_time = time.perf_counter() - start
         sample_length = len(float64_buffer) / 16000  # length in sec
-        if text != "":
-            output_queue.put([text, sample_length, inference_time])
+        output_queue.put([text, sample_length, inference_time])
 
 
 def live_get_input_device_id(device_name, microphones):
@@ -105,7 +107,7 @@ def live_list_microphones(pyaudio_instance):
     return result
 
 
-class LiveHFSpeech:
+class LiveSpeech:
     exit_event = threading.Event()
 
     def __init__(self, model_name, device_name="default",
@@ -140,7 +142,7 @@ class LiveHFSpeech:
 
     def stop(self):
         """stop the asr process"""
-        LiveHFSpeech.exit_event.set()
+        LiveSpeech.exit_event.set()
         self.asr_input_queue.put("close")
         print("asr stopped")
 

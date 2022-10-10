@@ -4,6 +4,15 @@ import torch
 import torchaudio
 
 
+def cal_audio_time(filename):
+    import subprocess, json
+    result = subprocess.check_output(
+        f'ffprobe -v quiet -show_format -of json "{filename}"',
+        shell=True).decode()
+    duration = json.loads(result)['format']['duration']
+    return float(duration)
+
+
 def shuffle_gen(n):
     # this is used like a range(n) list, but we don’t store
     # those entries where state[i] = i.
