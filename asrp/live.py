@@ -49,7 +49,9 @@ def live_vad_process(device_name, asr_input_queue, vad_mode=2):
     audio.terminate()
 
 
-def live_asr_process(model_name, in_queue, output_queue,
+def live_asr_process(model_name,
+                     in_queue,
+                     output_queue,
                      beam_width,
                      hotwords,
                      hotword_weight,
@@ -58,9 +60,10 @@ def live_asr_process(model_name, in_queue, output_queue,
                      beam_prune_logp,
                      token_min_logp,
                      use_auth_token,
-                     homophone_extend):
+                     homophone_extend,
+                     kwargs):
     if "tiny" == model_name or "base" == model_name or "small" == model_name or "medium" == model_name and "large" == model_name:
-        asr_interface = WhisperInference(model_size=model_name)
+        asr_interface = WhisperInference(model_size=model_name, **kwargs)
     else:
         asr_interface = HFSpeechInference(model_name,
                                           beam_width=beam_width,
@@ -71,7 +74,7 @@ def live_asr_process(model_name, in_queue, output_queue,
                                           beam_prune_logp=beam_prune_logp,
                                           token_min_logp=token_min_logp,
                                           use_auth_token=use_auth_token,
-                                          homophone_extend=homophone_extend)
+                                          homophone_extend=homophone_extend, **kwargs)
 
     print("\nlistening to your voice\n")
     while True:
@@ -120,7 +123,8 @@ class LiveSpeech:
                  beam_prune_logp=-10.0,
                  token_min_logp=-10.0,
                  use_auth_token=False,
-                 homophone_extend=False):
+                 homophone_extend=False,
+                 **kwargs):
         self.model_name = model_name
         self.device_name = device_name
         self.asr_output_queue = Queue()
@@ -135,7 +139,8 @@ class LiveSpeech:
             beam_prune_logp,
             token_min_logp,
             use_auth_token,
-            homophone_extend
+            homophone_extend,
+            kwargs
         ))
         self.live_vad_process = threading.Thread(target=live_vad_process, args=(
             self.device_name, self.asr_input_queue, vad_mode))
@@ -149,7 +154,7 @@ class LiveSpeech:
     def start(self):
         """start the asr process"""
         self.live_asr_process.start()
-        time.sleep(5)  # start vad after asr model is loaded
+        time.sleep(3)  # start vad after asr model is loaded
         self.live_vad_process.start()
 
     def get_last_text(self):

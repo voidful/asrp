@@ -1,4 +1,5 @@
 import os.path
+from typing import Optional, Union, List, Iterable
 
 import numpy as np
 import torch
@@ -72,9 +73,37 @@ class HFSpeechInference:
 
 
 class WhisperInference:
-    def __init__(self, model_size='base'):
+    def __init__(self, model_size='base',
+                 task: str = "transcribe",
+                 temperature: float = 0.0,
+                 sample_len: Optional[int] = None,  # maximum number of tokens to sample
+                 best_of: Optional[int] = None,  # number of independent samples to collect, when t > 0
+                 beam_size: Optional[int] = None,  # number of beams in beam search, when t == 0
+                 patience: Optional[float] = None,  # patience in beam search (https://arxiv.org/abs/2204.05424)
+                 length_penalty: Optional[float] = None,  # "alpha" in Google NMT, None defaults to length norm
+                 prompt: Optional[Union[str, List[int]]] = None,  # text or tokens for the previous context
+                 prefix: Optional[Union[str, List[int]]] = None,  # text or tokens to prefix the current context
+                 suppress_blank: bool = True,  # this will suppress blank outputs
+                 suppress_tokens: Optional[Union[str, Iterable[int]]] = "-1",
+                 without_timestamps: bool = False,  # use <|notimestamps|> to sample text tokens only
+                 max_initial_timestamp: Optional[float] = 1.0,  # the initial timestamp cannot be later than this
+                 language=None):
         self.model = whisper.load_model(model_size)
-        self.options = whisper.DecodingOptions(fp16=False)
+        self.options = whisper.DecodingOptions(fp16=False,
+                                               task=task,
+                                               language=language,
+                                               temperature=temperature,
+                                               sample_len=sample_len,
+                                               best_of=best_of,
+                                               beam_size=beam_size,
+                                               patience=patience,
+                                               length_penalty=length_penalty,
+                                               prompt=prompt,
+                                               prefix=prefix,
+                                               suppress_blank=suppress_blank,
+                                               suppress_tokens=suppress_tokens,
+                                               without_timestamps=without_timestamps,
+                                               max_initial_timestamp=max_initial_timestamp)
 
     def buffer_to_text(self, audio_buffer):
         if (len(audio_buffer) == 0):

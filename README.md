@@ -69,8 +69,10 @@ ipd.Audio(data=cs(code), autoplay=False, rate=cs.sample_rate)
 ```
 
 ### Speech Enhancement
+
 Denoiser copied
 from [fairseq](https://github.com/facebookresearch/fairseq/tree/main/examples/speech_synthesis/preprocessing/denoiser)
+
 ```python
 from asrp import SpeechEnhancer
 
@@ -101,11 +103,12 @@ except KeyboardInterrupt:
 ```
 
 ### usage - liveASR - whisper
+
 ```python
 from asrp.live import LiveSpeech
 
 whisper_model = "tiny"
-asr = LiveSpeech(whisper_model)
+asr = LiveSpeech(whisper_model, vad_mode=2, language='zh')
 asr.start()
 last_text = ""
 while True:
