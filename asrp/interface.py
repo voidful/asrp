@@ -4,6 +4,7 @@ from typing import Optional, Union, List, Iterable
 import numpy as np
 import torch
 import whisper
+from math import exp
 from transformers import AutoModelForCTC, AutoProcessor
 
 
@@ -75,6 +76,7 @@ class HFSpeechInference:
 class WhisperInference:
     def __init__(self, model_size='base',
                  task: str = "transcribe",
+                 speech_threshold: float = 0.4,
                  temperature: float = 0.0,
                  sample_len: Optional[int] = None,  # maximum number of tokens to sample
                  best_of: Optional[int] = None,  # number of independent samples to collect, when t > 0
@@ -89,6 +91,7 @@ class WhisperInference:
                  max_initial_timestamp: Optional[float] = 1.0,  # the initial timestamp cannot be later than this
                  language=None):
         self.model = whisper.load_model(model_size)
+        self.speech_threshold = speech_threshold
         self.options = whisper.DecodingOptions(fp16=False,
                                                task=task,
                                                language=language,
@@ -113,7 +116,7 @@ class WhisperInference:
             audio = whisper.pad_or_trim(audio_buffer)
             mel = whisper.log_mel_spectrogram(audio).to(self.model.device)
             result = whisper.decode(self.model, mel, self.options)
-        if result.no_speech_prob < 0.4:
+        if exp(result.avg_logprob) > self.speech_threshold:
             return result.text.lower()
         else:
             return ""

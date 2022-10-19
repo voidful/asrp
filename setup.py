@@ -2,10 +2,11 @@ from setuptools import setup, find_packages
 
 with open('requirements.txt') as f:
     required = f.read().splitlines()
+    required = [i for i in required if "@" not in i]
 
 setup(
     name='asrp',
-    version='0.0.50',
+    version='0.0.51',
     description='',
     url='https://github.com/voidful/asrp',
     author='Voidful',
