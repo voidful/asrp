@@ -47,8 +47,13 @@ print("chunk size CER: {:2f}".format(100 * asrp.chunked_cer(targets, preds, chun
 
 ```python
 import asrp
+import nlp2
 
-hc = asrp.HubertCode("facebook/hubert-large-ll60k", './km_feat_100_layer_20', 20)
+nlp2.download_file(
+    'https://huggingface.co/voidful/mhubert-base/resolve/main/mhubert_base_vp_en_es_fr_it3_L11_km1000.bin', './')
+hc = asrp.HubertCode("voidful/mhubert-base", './mhubert_base_vp_en_es_fr_it3_L11_km1000.bin', 11,
+                     chunk_sec=30,
+                     worker=20)
 hc('voice file path')
 ```
 

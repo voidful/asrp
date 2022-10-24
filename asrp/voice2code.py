@@ -11,6 +11,28 @@ from tqdm.contrib.concurrent import thread_map
 from transformers import Wav2Vec2FeatureExtractor, HubertModel
 
 
+def collate_fn_pad(batch, device):
+    '''
+    Padds batch of variable length
+    note: it converts things ToTensor manually here since the ToTensor transform
+    assume it takes in images rather than arbitrary tensors.
+    '''
+    ## get sequence lengths
+    lengths = torch.tensor([t.shape[0] for t in batch]).to(device)
+    ## padd
+    batch = [torch.Tensor(t).to(device) for t in batch]
+    batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0)
+    ## compute mask
+    mask = (batch != 0).to(device)
+    return batch, lengths, mask
+
+
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
+
 class HubertCode(object):
     def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=10, worker=8, return_diff=False):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model)
@@ -118,26 +140,6 @@ class HubertCode(object):
             def dataloader_collate(batch):
                 return torch.cat(batch, dim=0), [b.shape[0] for b in batch]
 
-            def collate_fn_pad(batch, device):
-                '''
-                Padds batch of variable length
-                note: it converts things ToTensor manually here since the ToTensor transform
-                assume it takes in images rather than arbitrary tensors.
-                '''
-                ## get sequence lengths
-                lengths = torch.tensor([t.shape[0] for t in batch]).to(device)
-                ## padd
-                batch = [torch.Tensor(t).to(device) for t in batch]
-                batch = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=0)
-                ## compute mask
-                mask = (batch != 0).to(device)
-                return batch, lengths, mask
-
-            def chunks(l, n):
-                """Yield successive n-sized chunks from l."""
-                for i in range(0, len(l), n):
-                    yield l[i:i + n]
-
             dataset = SpeechDataset(filepaths, self.processor, self.sampling_rate)
             dataloader = DataLoader(dataset=dataset, batch_size=self.max_batch,
                                     shuffle=False,
@@ -190,30 +192,19 @@ class HubertCode(object):
             if torch.cuda.is_available():
                 input_values = input_values.cuda()
 
-            chunks = list(torch.split(input_values, self.chunk_length, dim=1))
-            if chunks[-1].shape[-1] < self.sampling_rate:
-                concat_index = -2 if len(chunks) >= 2 else 0
-                chunks[concat_index] = torch.cat(chunks[-2:], dim=-1)
-                chunks = chunks[:concat_index + 1]
-            batch_data = []
-            cache_batch = []
-            for c in chunks:
-                if len(cache_batch) >= self.max_batch:
-                    batch_data.append(cache_batch)
-                    cache_batch = []
-                cache_batch.append(c)
-            if len(cache_batch) > 0:
-                batch_data.append(cache_batch)
-
             code_result = []
-            for bd in batch_data:
-                hidden = self.model(torch.stack([i[0] for i in bd], dim=0),
-                                    output_hidden_states=True).hidden_states[self.km_layer]
-                code_result.append(hidden.squeeze(0).detach())
+            batch, lengths, masks = collate_fn_pad(input_values, self.device)
+            masks_ratio = lengths / torch.max(lengths)
+            hidden = self.model(batch,
+                                output_hidden_states=True).hidden_states[self.km_layer].detach()
+            mask_len = (hidden.shape[1] * masks_ratio).int()
+            code_result.append(hidden[:mask_len, :].squeeze(0))
 
-            return_dicts = thread_map(self._process_feature, code_result, leave=False)
-
-            if len(return_dicts) == 1:
-                return return_dicts[0]
-            else:
-                return return_dicts
+            result = {}
+            for d in thread_map(self._process_feature, code_result, leave=False):
+                for k2, v2 in d.items():
+                    if k2 in result:
+                        result[k2].extend(v2)
+                    else:
+                        result[k2] = v2
+            return result
