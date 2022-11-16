@@ -3,7 +3,11 @@ from typing import Optional, Union, List, Iterable
 
 import numpy as np
 import torch
-import whisper
+
+try:
+    import whisper
+except:
+    pass
 from math import exp
 from transformers import AutoModelForCTC, AutoProcessor
 

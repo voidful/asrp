@@ -1,11 +1,13 @@
 import gc
 from collections import defaultdict
+from functools import partial
 from itertools import groupby
 
 import joblib
 import numpy
 import torch
 import torchaudio
+from torch import nn
 from tqdm.auto import tqdm
 from tqdm.contrib.concurrent import thread_map
 from transformers import Wav2Vec2FeatureExtractor, HubertModel
@@ -71,8 +73,11 @@ class HubertCode(object):
         print("maximum batch size will be", batch)
         return batch
 
-    def _process_feature(self, k, top_k=5, beamsearch=False, beamsize=3):
+    def _process_feature(self, k, top_k=5, feat_norm=True, beamsearch=False, beamsize=5):
         feature = torch.cat(k, dim=0) if isinstance(k, list) else k
+        if feat_norm:
+            m = nn.InstanceNorm1d(feature.shape[-1], affine=False)
+            feature = m(feature)
         dist = torch.sqrt(
             feature.pow(2).sum(1, keepdim=True)
             - 2 * torch.matmul(feature, self.C)
@@ -111,7 +116,7 @@ class HubertCode(object):
             return_dict['beam_merged_code'] = [k for k, _ in groupby(code_output)]
         return return_dict
 
-    def list_prediction(self, filepaths):
+    def list_prediction(self, filepaths, feat_norm=False, beamsearch=False, top_k=5, beamsize=5):
         with torch.no_grad():
             from torch.utils.data import Dataset
             from torch.utils.data import DataLoader
@@ -167,7 +172,13 @@ class HubertCode(object):
 
                 for k, v in code_result.items():
                     result = {}
-                    for d in thread_map(self._process_feature, v, leave=False):
+                    for d in thread_map(
+                            partial(self._process_feature,
+                                    top_k=top_k,
+                                    beamsearch=beamsearch,
+                                    beamsize=beamsize,
+                                    feat_norm=feat_norm), v,
+                            leave=False):
                         for k2, v2 in d.items():
                             if k2 in result:
                                 result[k2].extend(v2)
@@ -176,7 +187,7 @@ class HubertCode(object):
                     return_list.append(result)
         return return_list
 
-    def __call__(self, filepath='', input_values=[], beamsearch=True, top_k=3, beamsize=3):
+    def __call__(self, filepath='', input_values=[], feat_norm=False, beamsearch=False, top_k=5, beamsize=5):
         with torch.no_grad():
             if len(input_values) <= 0:
                 speech, sr = torchaudio.load(filepath)
@@ -201,7 +212,12 @@ class HubertCode(object):
             code_result.append(hidden[:mask_len, :].squeeze(0))
 
             result = {}
-            for d in thread_map(self._process_feature, code_result, leave=False):
+            for d in thread_map(partial(self._process_feature,
+                                        top_k=top_k,
+                                        beamsearch=beamsearch,
+                                        beamsize=beamsize,
+                                        feat_norm=feat_norm),
+                                code_result, leave=False):
                 for k2, v2 in d.items():
                     if k2 in result:
                         result[k2].extend(v2)
