@@ -60,6 +60,7 @@ class Code2Speech(object):
             self.waveglow = self.waveglow.to(self.device)
             self.denoiser = self.denoiser.to(self.device)
         elif self.vocoder == 'hifigan':
+            self.sample_rate = 16000
             self.hifigan = load_hifigan(model_path=tts_checkpoint)
 
         self.end_tok = end_tok
