@@ -200,9 +200,6 @@ class HubertCode(object):
                 input_values = self.processor(speech, return_tensors="pt",
                                               sampling_rate=self.sampling_rate).input_values
 
-            if torch.cuda.is_available():
-                input_values = input_values.cuda()
-
             code_result = []
             batch, lengths, masks = collate_fn_pad(input_values, self.device)
             masks_ratio = lengths / torch.max(lengths)
