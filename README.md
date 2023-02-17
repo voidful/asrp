@@ -1,6 +1,18 @@
-# asrp
+# ASRP: Automatic Speech Recognition Preprocessing Utility
 
-ASR text preprocessing utility
+ASRP is a python package that offers a set of tools to preprocess and evaluate ASR (Automatic Speech Recognition) text.
+The package also provides a speech-to-text transcription tool and a text-to-speech conversion tool. The code is
+open-source and can be installed using pip.
+
+Key Features
+
+- Preprocess ASR text with ease
+- Evaluate ASR output quality
+- Transcribe speech to Hubert code
+- Convert unit code to speech
+- Enhance speech quality with a noise reduction tool
+- LiveASR tool for real-time speech recognition
+- Speaker Embedding Extraction (x-vector/d-vector)
 
 ## install
 
@@ -8,8 +20,10 @@ ASR text preprocessing utility
 
 ## Preprocess
 
-input: dictionary, with key `sentence`    
-output: preprocessed result, inplace handling.
+ASRP offers an easy-to-use set of functions to preprocess ASR text data.   
+The input data is a dictionary with the key 'sentence', and the output is the preprocessed text.     
+You can either use the fun_en function or use dynamic loading.
+Here's how to use it:
 
 ```python
 import asrp
@@ -34,6 +48,11 @@ preprocessor(batch_data)
 
 ## Evaluation
 
+ASRP provides functions to evaluate the output quality of ASR systems using     
+the Word Error Rate (WER) and 
+Character Error Rate (CER) metrics.   
+Here's how to use it:
+
 ```python
 import asrp
 
@@ -43,7 +62,7 @@ print("chunk size WER: {:2f}".format(100 * asrp.chunked_wer(targets, preds, chun
 print("chunk size CER: {:2f}".format(100 * asrp.chunked_cer(targets, preds, chunk_size=None)))
 ```
 
-## Speech to Hubert code
+## Speech to Discrete Unit
 
 ```python
 import asrp
@@ -57,7 +76,7 @@ hc = asrp.HubertCode("voidful/mhubert-base", './mhubert_base_vp_en_es_fr_it3_L11
 hc('voice file path')
 ```
 
-## Hubert code to speech
+## Discrete Unit to speech
 
 ```python
 import asrp
@@ -74,9 +93,8 @@ ipd.Audio(data=cs(code), autoplay=False, rate=cs.sample_rate)
 ```
 
 ### Speech Enhancement
-
-Denoiser copied
-from [fairseq](https://github.com/facebookresearch/fairseq/tree/main/examples/speech_synthesis/preprocessing/denoiser)
+ASRP also provides a tool to enhance speech quality with a noise reduction tool.  
+from https://github.com/facebookresearch/fairseq/tree/main/examples/speech_synthesis/preprocessing/denoiser
 
 ```python
 from asrp import SpeechEnhancer
@@ -85,7 +103,7 @@ ase = SpeechEnhancer()
 print(ase('./test/xxx.wav'))
 ```
 
-### usage - liveASR
+### LiveASR - huggingface's model
 
 * modify from https://github.com/oliverguhr/wav2vec2-live
 
@@ -107,7 +125,7 @@ except KeyboardInterrupt:
     asr.stop()
 ```
 
-### usage - liveASR - whisper
+### LiveASR - whisper's model
 
 ```python
 from asrp.live import LiveSpeech
@@ -126,4 +144,21 @@ while True:
         asr.stop()
         break
 
+```
+
+### Speaker Embedding Extraction - x vector
+from https://speechbrain.readthedocs.io/en/latest/API/speechbrain.lobes.models.Xvector.html  
+```python
+from asrp.speaker_embedding import extract_x_vector
+
+extract_x_vector('./test/xxx.wav')
+```
+
+### Speaker Embedding Extraction - d vector
+from https://github.com/yistLin/dvector   
+
+```python
+from asrp.speaker_embedding import extract_d_vector
+
+extract_d_vector('./test/xxx.wav')
 ```

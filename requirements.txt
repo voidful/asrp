@@ -5,4 +5,5 @@ editdistance
 librosa
 webrtcvad
 pyctcdecode
-whisper@git+https://github.com/openai/whisper.git
+speechbrain
+openai-whisper
