@@ -6,13 +6,13 @@ open-source and can be installed using pip.
 
 Key Features
 
-- Preprocess ASR text with ease
-- Evaluate ASR output quality
-- Transcribe speech to Hubert code
-- Convert unit code to speech
-- Enhance speech quality with a noise reduction tool
-- LiveASR tool for real-time speech recognition
-- Speaker Embedding Extraction (x-vector/d-vector)
+- [Preprocess ASR text with ease](#preprocess)
+- [Evaluate ASR output quality](#Evaluation)
+- [Transcribe speech to Hubert code](#speech-to-discrete-unit)
+- [Convert unit code to speech](#discrete-unit-to-speech)
+- [Enhance speech quality with a noise reduction tool](#speech-enhancement)
+- [LiveASR tool for real-time speech recognition](#liveasr---huggingfaces-model)
+- [Speaker Embedding Extraction (x-vector/d-vector)](#speaker-embedding-extraction---x-vector)
 
 ## install
 
@@ -92,7 +92,7 @@ import IPython.display as ipd
 ipd.Audio(data=cs(code), autoplay=False, rate=cs.sample_rate)
 ```
 
-### Speech Enhancement
+## Speech Enhancement
 ASRP also provides a tool to enhance speech quality with a noise reduction tool.  
 from https://github.com/facebookresearch/fairseq/tree/main/examples/speech_synthesis/preprocessing/denoiser
 
@@ -103,7 +103,7 @@ ase = SpeechEnhancer()
 print(ase('./test/xxx.wav'))
 ```
 
-### LiveASR - huggingface's model
+## LiveASR - huggingface's model
 
 * modify from https://github.com/oliverguhr/wav2vec2-live
 
@@ -125,7 +125,7 @@ except KeyboardInterrupt:
     asr.stop()
 ```
 
-### LiveASR - whisper's model
+## LiveASR - whisper's model
 
 ```python
 from asrp.live import LiveSpeech
@@ -146,7 +146,7 @@ while True:
 
 ```
 
-### Speaker Embedding Extraction - x vector
+## Speaker Embedding Extraction - x vector
 from https://speechbrain.readthedocs.io/en/latest/API/speechbrain.lobes.models.Xvector.html  
 ```python
 from asrp.speaker_embedding import extract_x_vector
@@ -154,7 +154,7 @@ from asrp.speaker_embedding import extract_x_vector
 extract_x_vector('./test/xxx.wav')
 ```
 
-### Speaker Embedding Extraction - d vector
+## Speaker Embedding Extraction - d vector
 from https://github.com/yistLin/dvector   
 
 ```python
