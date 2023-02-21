@@ -6,7 +6,8 @@ import torch
 import torchaudio
 
 
-def extract_d_vector(wav_path, wav_tensor=None, sampling_rate=16000,inference=True):
+def extract_d_vector(wav_path=None, wav_tensor=None, sampling_rate=16000, inference=True):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     with torch.inference_mode(inference):
         try:
             save_folder = Path(__file__).parent
@@ -22,23 +23,25 @@ def extract_d_vector(wav_path, wav_tensor=None, sampling_rate=16000,inference=Tr
             nlp2.download_file(
                 'https://github.com/yistLin/dvector/releases/download/v1.1.1/dvector-step250000.pt',
                 f'{Path(__file__).parent}')
-        wav2mel = torch.jit.load("wav2mel.pt")
-        dvector = torch.jit.load("dvector-step250000.pt").eval()
-        if not wav_tensor:
+        wav2mel = torch.jit.load(wav2mel_path)
+        dvector = torch.jit.load(dvector_path).eval().to(device)
+        if not torch.is_tensor(wav_tensor):
             wav_tensor, sample_rate = torchaudio.load(wav_path)
             mel_tensor = wav2mel(wav_tensor, sample_rate)  # shape: (frames, mel_dim)
         else:
             mel_tensor = wav2mel(wav_tensor, sampling_rate)
-        emb_tensor = dvector.embed_utterance(mel_tensor)  # shape: (emb_dim)
-    return emb_tensor
+        emb_tensor = dvector.embed_utterance(mel_tensor.to(device))  # shape: (emb_dim)
+    return emb_tensor.tolist()
 
 
-def extract_x_vector(wav_path, wav_tensor=None, sampling_rate=16000, inference=True):
+def extract_x_vector(wav_path=None, wav_tensor=None, sampling_rate=16000, inference=True):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     with torch.inference_mode(inference):
         from speechbrain.pretrained import EncoderClassifier
         classifier = EncoderClassifier.from_hparams(source="speechbrain/spkrec-xvect-voxceleb",
-                                                    savedir="pretrained_models/spkrec-xvect-voxceleb")
-        if not wav_tensor:
+                                                    savedir="pretrained_models/spkrec-xvect-voxceleb",
+                                                    run_opts={"device": device})
+        if not torch.is_tensor(wav_tensor):
             wav_tensor, sampling_rate = torchaudio.load(wav_path)
-        embeddings = classifier.encode_batch(wav_tensor).squeeze()
-        return embeddings
+        embeddings = classifier.encode_batch(wav_tensor.to(device)).squeeze()
+        return embeddings.tolist()
