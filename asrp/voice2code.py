@@ -4,7 +4,7 @@ from functools import partial
 from itertools import groupby
 
 import joblib
-import numpy
+import numpy as np
 import torch
 import torchaudio
 from torch import nn
@@ -36,7 +36,8 @@ def chunks(l, n):
 
 
 class HubertCode(object):
-    def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=10, worker=8, return_diff=False):
+    def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=10, worker=8, return_diff=False,
+                 batch=None):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model)
         self.model = HubertModel.from_pretrained(hubert_model)
         self.model.eval()
@@ -55,7 +56,7 @@ class HubertCode(object):
             self.C = self.C.cuda()
             self.Cnorm = self.Cnorm.cuda()
             self.model = self.model.cuda()
-        self.max_batch = self.get_max_batch()
+        self.max_batch = batch if batch else self.get_max_batch()
 
     def get_max_batch(self):
         print("calculating max batch size...")
@@ -73,10 +74,10 @@ class HubertCode(object):
         print("maximum batch size will be", batch)
         return batch
 
-    def _process_feature(self, k, top_k=5, feat_norm=True, beamsearch=False, beamsize=5):
+    def _process_feature(self, k, top_k=100, feat_norm=False, beamsearch=False, beamsize=5):
         feature = torch.cat(k, dim=0) if isinstance(k, list) else k
         if feat_norm:
-            m = nn.InstanceNorm1d(feature.shape[-1], affine=False)
+            m = nn.BatchNorm1d(feature.shape[-1], affine=False).to(self.device)
             feature = m(feature)
         dist = torch.sqrt(
             feature.pow(2).sum(1, keepdim=True)
@@ -87,7 +88,6 @@ class HubertCode(object):
         pred_ind_array = min_dist.indices.cpu().numpy()
         pred_values_array = min_dist.values.cpu().numpy()
         code_output = min_dist.indices.T.cpu().numpy()[0]
-
         return_dict = {
             'code': list(code_output),
             'merged_code': [k for k, _ in groupby(code_output)]
@@ -100,16 +100,18 @@ class HubertCode(object):
             })
         if beamsearch:
             sequences = [[[], 1.0]]
+            self.var_list = []
             for i_row, v_row in zip(pred_ind_array, pred_values_array):
                 all_candidates = list()
                 for seq in sequences:
                     tokens, score = seq
+                    self.var_list.append(np.var(v_row))
                     for k, v in zip(i_row, v_row):
-                        norm_len_rate = (len([k for k, _ in groupby(tokens + [k])]) / len(code_output))
-                        norm_dist_rate = (v / numpy.sum(v_row))
+                        norm_len_rate = (len(code_output) / len([k for k, _ in groupby(tokens + [k])]))
+                        norm_dist_rate = np.var(v_row) / v
                         candidate = [tokens + [k], score + norm_len_rate * norm_dist_rate]
                         all_candidates.append(candidate)
-                ordered = sorted(all_candidates, key=lambda tup: tup[1], reverse=False)
+                ordered = sorted(all_candidates, key=lambda tup: tup[1], reverse=True)
                 sequences = ordered[:beamsize]
             code_output = sequences[0][0]
             return_dict['beam_code'] = code_output
