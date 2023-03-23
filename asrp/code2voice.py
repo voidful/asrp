@@ -1,9 +1,7 @@
 import collections
 import sys
-from random import random
 
 from asrp import glow
-
 from asrp.hifigan import CodeHiFiGANVocoder
 
 sys.modules['glow'] = glow
@@ -66,12 +64,12 @@ class Code2Speech(object):
         self.end_tok = end_tok
         self.code_begin_pad = code_begin_pad
 
-    def __call__(self, code, strength=0.1):
+    def __call__(self, code, strength=0.1, dur_prediction=True):
         with torch.no_grad():
             code = [i + self.code_begin_pad for i in code]
             if self.end_tok is not None and code[-1] != self.end_tok:
                 code.append(self.end_tok)
-            tts_input = torch.tensor(code)
+            tts_input = torch.tensor(code, dtype=torch.long)
             if self.vocoder == 'tecotron':
                 tts_input.to(device)
                 mel, aud, aud_dn, has_eos = synthesize_audio(
@@ -84,9 +82,8 @@ class Code2Speech(object):
                 audio_seq = aud_dn[0].cpu().float().numpy()
             elif self.vocoder == 'hifigan':
                 x = {
-                    "code": tts_input.view(1, -1),
+                    "code": tts_input.view(1, -1)
                 }
-                # x["dur_prediction"] = dur_prediction
                 # if self.hifigan.multispkr:
                 #     spk = (
                 #         random.randint(0, vocnum_speakers - 1)
@@ -95,7 +92,7 @@ class Code2Speech(object):
                 #     )
                 #     suffix = f"_spk{spk}"
                 #     x["spkr"] = torch.LongTensor([spk]).view(1, 1)
-                audio_seq = self.hifigan(x, False)
+                audio_seq = self.hifigan(x, dur_prediction=dur_prediction)
 
             return audio_seq
 

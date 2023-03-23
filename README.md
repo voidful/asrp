@@ -22,8 +22,7 @@ Key Features
 
 ASRP offers an easy-to-use set of functions to preprocess ASR text data.   
 The input data is a dictionary with the key 'sentence', and the output is the preprocessed text.     
-You can either use the fun_en function or use dynamic loading.
-Here's how to use it:
+You can either use the fun_en function or use dynamic loading. Here's how to use it:
 
 ```python
 import asrp
@@ -49,8 +48,7 @@ preprocessor(batch_data)
 ## Evaluation
 
 ASRP provides functions to evaluate the output quality of ASR systems using     
-the Word Error Rate (WER) and 
-Character Error Rate (CER) metrics.   
+the Word Error Rate (WER) and Character Error Rate (CER) metrics.   
 Here's how to use it:
 
 ```python
@@ -68,6 +66,8 @@ print("chunk size CER: {:2f}".format(100 * asrp.chunked_cer(targets, preds, chun
 import asrp
 import nlp2
 
+# https://github.com/facebookresearch/fairseq/blob/ust/examples/speech_to_speech/docs/textless_s2st_real_data.md
+# https://github.com/facebookresearch/fairseq/tree/main/examples/textless_nlp/gslm/ulm
 nlp2.download_file(
     'https://huggingface.co/voidful/mhubert-base/resolve/main/mhubert_base_vp_en_es_fr_it3_L11_km1000.bin', './')
 hc = asrp.HubertCode("voidful/mhubert-base", './mhubert_base_vp_en_es_fr_it3_L11_km1000.bin', 11,
@@ -82,7 +82,8 @@ hc('voice file path')
 import asrp
 
 code = []  # discrete unit
-# download tts checkpoint and waveglow_checkpint from https://github.com/pytorch/fairseq/tree/main/examples/textless_nlp/gslm/unit2speech
+# https://github.com/pytorch/fairseq/tree/main/examples/textless_nlp/gslm/unit2speech
+# https://github.com/facebookresearch/fairseq/blob/ust/examples/speech_to_speech/docs/textless_s2st_real_data.md
 cs = asrp.Code2Speech(tts_checkpoint='./tts_checkpoint_best.pt', waveglow_checkpint='waveglow_256channels_new.pt')
 cs(code)
 
@@ -92,7 +93,33 @@ import IPython.display as ipd
 ipd.Audio(data=cs(code), autoplay=False, rate=cs.sample_rate)
 ```
 
+mhubert English hifigan vocoder example
+
+```python
+import asrp
+import nlp2
+import IPython.display as ipd
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+nlp2.download_file(
+    'https://dl.fbaipublicfiles.com/fairseq/speech_to_speech/vocoder/code_hifigan/mhubert_vp_en_es_fr_it3_400k_layer11_km1000_lj/g_00500000',
+    './')
+
+
+tokenizer = AutoTokenizer.from_pretrained("voidful/mhubert-unit-tts")
+model = AutoModelForSeq2SeqLM.from_pretrained("voidful/mhubert-unit-tts")
+model.eval()
+cs = asrp.Code2Speech(tts_checkpoint='./g_00500000', vocoder='hifigan')
+
+inputs = tokenizer(["The quick brown fox jumps over the lazy dog."], return_tensors="pt")
+code = tokenizer.batch_decode(model.generate(**inputs,max_length=1024))[0]
+code = [int(i) for i in code.replace("</s>","").replace("<s>","").split("v_tok_")[1:]]
+print(code)
+ipd.Audio(data=cs(code), autoplay=False, rate=cs.sample_rate)
+
+```
+
 ## Speech Enhancement
+
 ASRP also provides a tool to enhance speech quality with a noise reduction tool.  
 from https://github.com/facebookresearch/fairseq/tree/main/examples/speech_synthesis/preprocessing/denoiser
 
@@ -147,7 +174,9 @@ while True:
 ```
 
 ## Speaker Embedding Extraction - x vector
-from https://speechbrain.readthedocs.io/en/latest/API/speechbrain.lobes.models.Xvector.html  
+
+from https://speechbrain.readthedocs.io/en/latest/API/speechbrain.lobes.models.Xvector.html
+
 ```python
 from asrp.speaker_embedding import extract_x_vector
 
@@ -155,7 +184,8 @@ extract_x_vector('./test/xxx.wav')
 ```
 
 ## Speaker Embedding Extraction - d vector
-from https://github.com/yistLin/dvector   
+
+from https://github.com/yistLin/dvector
 
 ```python
 from asrp.speaker_embedding import extract_d_vector
