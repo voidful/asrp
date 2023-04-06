@@ -8,7 +8,8 @@ import numpy as np
 import torch
 import torchaudio
 from torch import nn
-from tqdm.auto import tqdm
+from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
 from tqdm.contrib.concurrent import thread_map
 from transformers import Wav2Vec2FeatureExtractor, HubertModel
 
@@ -36,7 +37,8 @@ def chunks(l, n):
 
 
 class HubertCode(object):
-    def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=10, worker=8, return_diff=False,
+    def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=10, worker=8,
+                 return_diff=False,
                  batch=None):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model)
         self.model = HubertModel.from_pretrained(hubert_model)
@@ -118,19 +120,37 @@ class HubertCode(object):
             return_dict['beam_merged_code'] = [k for k, _ in groupby(code_output)]
         return return_dict
 
-    def list_prediction(self, filepaths, feat_norm=False, beamsearch=False, top_k=5, beamsize=5):
+    def __call__(self, filepaths=None, input_values=None, feat_norm=False, beamsearch=False, top_k=5, beamsize=5):
         with torch.no_grad():
-            from torch.utils.data import Dataset
-            from torch.utils.data import DataLoader
+            if filepaths is None:
+                filepaths = []
+
+            if input_values is None:
+                input_values = []
+
+            if len(filepaths) == 0 and len(input_values) == 0:
+                raise ValueError("Both 'filepaths' and 'input_values' are empty. Provide at least one of them.")
+
+            is_single_input = (len(filepaths) == 1 and len(input_values) == 0) or (
+                    len(filepaths) == 0 and len(input_values) == 1)
+
+            if isinstance(input_values, torch.Tensor):
+                input_values = [input_values]
 
             class SpeechDataset(Dataset):
-                def __init__(self, paths, processor, sampling_rate=16000):
+                def __init__(self, paths, input_values, processor, sampling_rate=16000):
                     self.paths = paths
+                    self.input_values = input_values
                     self.processor = processor
                     self.sampling_rate = sampling_rate
 
                 def __getitem__(self, index):
-                    speech, sr = torchaudio.load(self.paths[index])
+                    if index < len(self.paths):
+                        speech, sr = torchaudio.load(self.paths[index])
+                    else:
+                        speech = self.input_values[index - len(self.paths)][None, :]
+                        sr = self.sampling_rate
+
                     speech = speech.mean(0)
                     if sr != self.sampling_rate:
                         resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sampling_rate)
@@ -142,19 +162,19 @@ class HubertCode(object):
                     return input_values.squeeze(0)
 
                 def __len__(self):
-                    return len(self.paths)
+                    return len(self.paths) + len(self.input_values)
 
             def dataloader_collate(batch):
                 return torch.cat(batch, dim=0), [b.shape[0] for b in batch]
 
-            dataset = SpeechDataset(filepaths, self.processor, self.sampling_rate)
+            dataset = SpeechDataset(filepaths, input_values, self.processor, self.sampling_rate)
             dataloader = DataLoader(dataset=dataset, batch_size=self.max_batch,
                                     shuffle=False,
                                     num_workers=self.worker,
                                     collate_fn=dataloader_collate)
 
             return_list = []
-            for data_batch, size in tqdm(dataloader):
+            for data_batch, size in dataloader:
                 batch_data = []
                 batch_map_audio = []
                 for b_id, audio in enumerate(torch.split(data_batch, size)):
@@ -180,46 +200,15 @@ class HubertCode(object):
                                     beamsearch=beamsearch,
                                     beamsize=beamsize,
                                     feat_norm=feat_norm), v,
-                            leave=False):
+                            leave=False, disable=True):
                         for k2, v2 in d.items():
                             if k2 in result:
                                 result[k2].extend(v2)
                             else:
                                 result[k2] = v2
                     return_list.append(result)
-        return return_list
 
-    def __call__(self, filepath='', input_values=[], feat_norm=False, beamsearch=False, top_k=5, beamsize=5):
-        with torch.no_grad():
-            if len(input_values) <= 0:
-                speech, sr = torchaudio.load(filepath)
-                speech = speech.mean(0).unsqueeze(0)
-                if sr != self.sampling_rate:
-                    resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sampling_rate)
-                    speech = resampler.forward(speech.squeeze(0)).numpy()
-                else:
-                    speech = speech.squeeze(0).numpy()
-                input_values = self.processor(speech, return_tensors="pt",
-                                              sampling_rate=self.sampling_rate).input_values
-
-            code_result = []
-            batch, lengths, masks = collate_fn_pad(input_values, self.device)
-            masks_ratio = lengths / torch.max(lengths)
-            hidden = self.model(batch,
-                                output_hidden_states=True).hidden_states[self.km_layer].detach()
-            mask_len = (hidden.shape[1] * masks_ratio).int()
-            code_result.append(hidden[:mask_len, :].squeeze(0))
-
-            result = {}
-            for d in thread_map(partial(self._process_feature,
-                                        top_k=top_k,
-                                        beamsearch=beamsearch,
-                                        beamsize=beamsize,
-                                        feat_norm=feat_norm),
-                                code_result, leave=False):
-                for k2, v2 in d.items():
-                    if k2 in result:
-                        result[k2].extend(v2)
-                    else:
-                        result[k2] = v2
-            return result
+        if is_single_input:
+            return return_list[0]
+        else:
+            return return_list
