@@ -5,6 +5,5 @@ editdistance
 librosa
 webrtcvad
 pyctcdecode
-speechbrain
 openai-whisper
 nlp2
