@@ -178,16 +178,16 @@ class HubertCode(object):
                 batch_data = []
                 batch_map_audio = []
                 for b_id, audio in enumerate(torch.split(data_batch, size)):
-                    chunks = list(torch.split(audio, self.chunk_length, dim=-1))
+                    split_chunks = list(torch.split(audio, self.chunk_length, dim=-1))
 
                     # Check if the last chunk is smaller than the sampling_rate
-                    if chunks[-1].shape[-1] < self.sampling_rate:
-                        concat_index = -2 if len(chunks) >= 2 else 0
-                        chunks[concat_index] = torch.cat(chunks[-2:], dim=-1)
-                        chunks = chunks[:concat_index + 1]
+                    if split_chunks[-1].shape[-1] < self.sampling_rate:
+                        concat_index = -2 if len(split_chunks) >= 2 else 0
+                        split_chunks[concat_index] = torch.cat(split_chunks[-2:], dim=-1)
+                        split_chunks = split_chunks[:concat_index + 1]
 
                     # Iterate through chunks and append them to batch_data and batch_map_audio
-                    for chunk in chunks:
+                    for chunk in split_chunks:
                         batch_data.append(chunk)
                         batch_map_audio.append(b_id)
 
