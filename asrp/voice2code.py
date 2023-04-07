@@ -37,7 +37,10 @@ def chunks(l, n):
 
 
 class HubertCode(object):
-    def __init__(self, hubert_model, km_path, km_layer, sampling_rate=16000, chunk_sec=10, worker=8,
+    def __init__(self, hubert_model, km_path, km_layer,
+                 sampling_rate=16000,
+                 chunk_sec=10,
+                 worker=8,
                  return_diff=False,
                  batch=None):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(hubert_model)
@@ -137,44 +140,52 @@ class HubertCode(object):
             if isinstance(input_values, torch.Tensor):
                 input_values = [input_values]
 
-            class SpeechDataset(Dataset):
-                def __init__(self, paths, input_values, processor, sampling_rate=16000):
-                    self.paths = paths
-                    self.input_values = input_values
-                    self.processor = processor
-                    self.sampling_rate = sampling_rate
+            if len(filepaths) > 0:
+                class SpeechDataset(Dataset):
+                    def __init__(self, paths, input_values, processor, sampling_rate=16000):
+                        self.paths = paths
+                        self.input_values = input_values
+                        self.processor = processor
+                        self.sampling_rate = sampling_rate
 
-                def __getitem__(self, index):
-                    if index < len(self.paths):
-                        speech, sr = torchaudio.load(self.paths[index])
-                    else:
-                        speech = self.input_values[index - len(self.paths)][None, :]
-                        sr = self.sampling_rate
+                    def __getitem__(self, index):
+                        if index < len(self.paths):
+                            speech, sr = torchaudio.load(self.paths[index])
+                        else:
+                            speech = self.input_values[index - len(self.paths)][None, :]
+                            sr = self.sampling_rate
 
-                    speech = speech.mean(0)
-                    if sr != self.sampling_rate:
-                        resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sampling_rate)
-                        speech = resampler.forward(speech.squeeze(0))
-                    else:
-                        speech = speech.squeeze(0)
-                    input_values = self.processor(speech, return_tensors="pt",
-                                                  sampling_rate=self.sampling_rate).input_values
-                    return input_values.squeeze(0)
+                        speech = speech.mean(0)
+                        if sr != self.sampling_rate:
+                            resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sampling_rate)
+                            speech = resampler.forward(speech.squeeze(0))
+                        else:
+                            speech = speech.squeeze(0)
+                        input_values = self.processor(speech, return_tensors="pt",
+                                                      sampling_rate=self.sampling_rate).input_values
+                        return input_values.squeeze(0)
 
-                def __len__(self):
-                    return len(self.paths) + len(self.input_values)
+                    def __len__(self):
+                        return len(self.paths) + len(self.input_values)
 
-            def dataloader_collate(batch):
-                return torch.cat(batch, dim=0), [b.shape[0] for b in batch]
+                def dataloader_collate(batch):
+                    return torch.cat(batch, dim=0), [b.shape[0] for b in batch]
 
-            dataset = SpeechDataset(filepaths, input_values, self.processor, self.sampling_rate)
-            dataloader = DataLoader(dataset=dataset, batch_size=self.max_batch,
-                                    shuffle=False,
-                                    num_workers=self.worker,
-                                    collate_fn=dataloader_collate)
+                dataset = SpeechDataset(filepaths, input_values, self.processor, self.sampling_rate)
+                dataloader = DataLoader(dataset=dataset, batch_size=self.max_batch,
+                                        shuffle=False,
+                                        num_workers=self.worker,
+                                        collate_fn=dataloader_collate)
+                process_data_batches = iter(dataloader)
+            else:
+                def process_input_values():
+                    for iv in input_values:
+                        yield iv, [iv.shape[0]]
+
+                process_data_batches = process_input_values()
 
             return_list = []
-            for data_batch, size in dataloader:
+            for data_batch, size in process_data_batches:
                 batch_data = []
                 batch_map_audio = []
                 for b_id, audio in enumerate(torch.split(data_batch, size)):
