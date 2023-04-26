@@ -44,8 +44,8 @@ def apply_to_sample(f, sample):
 
 
 class Code2Speech(object):
-    def __init__(self, tts_checkpoint, waveglow_checkpint=None, vocoder='tecotron', max_decoder_steps=2000,
-                 end_tok=None, code_begin_pad=0):
+    def __init__(self, tts_checkpoint, model_cfg, waveglow_checkpint=None, 
+                 vocoder='tecotron', max_decoder_steps=2000, end_tok=None, code_begin_pad=0):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.vocoder = vocoder
         if self.vocoder == 'tecotron':
@@ -59,7 +59,7 @@ class Code2Speech(object):
             self.denoiser = self.denoiser.to(self.device)
         elif self.vocoder == 'hifigan':
             self.sample_rate = 16000
-            self.hifigan = load_hifigan(model_path=tts_checkpoint)
+            self.hifigan = load_hifigan(model_path=tts_checkpoint, model_cfg=model_cfg)
 
         self.end_tok = end_tok
         self.code_begin_pad = code_begin_pad
@@ -333,8 +333,8 @@ def load_waveglow(waveglow_path):
     return waveglow, denoiser
 
 
-def load_hifigan(model_path, speaker_id=0, num_speakers=200):
-    vocoder = CodeHiFiGANVocoder(model_path)
+def load_hifigan(model_path, model_cfg, speaker_id=0, num_speakers=200):
+    vocoder = CodeHiFiGANVocoder(model_path, model_cfg)
     multispkr = vocoder.model.multispkr
     if multispkr:
         assert (
