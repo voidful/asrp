@@ -12,5 +12,5 @@ def hifigan_hubert_layer6_code100():
         'https://dl.fbaipublicfiles.com/fairseq/speech_to_speech/vocoder/code_hifigan/hubert_base_100_lj/config.json',
         './', 'hifigan_hubert_layer6_code100_config.json')
     cs = Code2Speech(tts_checkpoint='./hifigan_hubert_layer6_code100_g_00500000',
-                     model_cfg='./hifigan_hubert_layer6_code100_config.json', vocoder='hifigan')
+                     model_cfg=nlp2.read_json('./hifigan_hubert_layer6_code100_config.json'), vocoder='hifigan')
     return cs
