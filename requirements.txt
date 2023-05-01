@@ -6,4 +6,4 @@ librosa
 webrtcvad
 pyctcdecode
 openai-whisper
-nlp2
+nlp2>=1.8.49
