@@ -7,7 +7,7 @@ import torch
 try:
     import whisper
 except:
-    pass
+    print("whisper not installed, install it using 'pip install openai-whisper'")
 from math import exp
 from transformers import AutoModelForCTC, AutoProcessor, WhisperForConditionalGeneration
 
